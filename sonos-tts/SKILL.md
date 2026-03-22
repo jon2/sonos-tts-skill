@@ -31,6 +31,7 @@ python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/announce.py --roo
 - The script starts or reuses a small HTTP server that serves files from `tts-cache/`.
 - Generated files are cached in `/home/jon/.openclaw/workspace/tts-cache/`.
 - By default the script snapshots current Sonos state and attempts a best-effort restore after the announcement.
+- For multi-room announcements, the script temporarily groups targets under one coordinator and plays the announcement once for tighter sync.
 - By default the wrapper also uses ducked announcement volume when a room is already playing.
 - Use `--volume` to force an absolute announcement volume.
 - Use `--duck <n>` to reduce current playing volume by `n` steps for the announcement.

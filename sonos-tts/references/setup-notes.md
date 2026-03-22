@@ -45,6 +45,7 @@ Limitations:
 - Some Sonos sources may resume imperfectly depending on URI type
 - Group restoration depends on visible speakers and successful join/unjoin operations
 - The current ducking behavior lowers announcement volume relative to active playback; it does not mix TTS over existing audio
+- Multi-room announcements are synchronized by temporarily regrouping targets under a single coordinator before playback
 
 ### `Failed to import gTTS`
 

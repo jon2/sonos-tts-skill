@@ -19,12 +19,20 @@ DEFAULT_CACHE_DIR = Path('/home/jon/.openclaw/workspace/tts-cache')
 DEFAULT_PORT = 8765
 
 
-def run_sonos(args: list[str], room: str | None = None, capture: bool = False) -> str | None:
+def run_sonos(args: list[str], room: str | None = None, capture: bool = False, check: bool = True) -> str | None:
     cmd = ['sonos', *args]
     if room:
         cmd.extend(['--name', room])
-    result = subprocess.run(cmd, check=True, text=True, capture_output=capture)
+    result = subprocess.run(cmd, check=check, text=True, capture_output=capture)
     return result.stdout if capture else None
+
+
+def try_run_sonos(args: list[str], room: str | None = None):
+    cmd = ['sonos', *args]
+    if room:
+        cmd.extend(['--name', room])
+    result = subprocess.run(cmd, check=False, text=True, capture_output=True)
+    return result.returncode, (result.stdout or '').strip(), (result.stderr or '').strip()
 
 
 def get_local_ip() -> str:
@@ -130,7 +138,7 @@ def snapshot_targets(targets: list[str]) -> dict:
     return states
 
 
-def announcement_volume(room: str, state: dict, explicit_volume: int | None, duck: int | None) -> int | None:
+def announcement_volume(state: dict, explicit_volume: int | None, duck: int | None) -> int | None:
     if explicit_volume is not None:
         return explicit_volume
     current = state.get('volume')
@@ -207,10 +215,30 @@ def restore_states(previous: dict[str, dict], announcement_url: str):
 
         if previous_uri and previous_uri != announcement_url:
             run_sonos(['play-uri', previous_uri], room=room)
-            if previous_state in {'PAUSED_PLAYBACK', 'STOPPED'}:
-                run_sonos(['pause'], room=room)
-        elif previous_state in {'PAUSED_PLAYBACK', 'STOPPED'}:
-            run_sonos(['stop'], room=room)
+            if previous_state == 'PAUSED_PLAYBACK':
+                try_run_sonos(['pause'], room=room)
+            elif previous_state == 'STOPPED':
+                try_run_sonos(['stop'], room=room)
+        elif previous_state == 'PAUSED_PLAYBACK':
+            try_run_sonos(['pause'], room=room)
+        elif previous_state == 'STOPPED':
+            try_run_sonos(['stop'], room=room)
+
+
+def prepare_synchronized_group(targets: list[str], previous: dict[str, dict], explicit_volume: int | None, duck: int | None) -> str:
+    coordinator = targets[0]
+    run_sonos(['group', 'unjoin'], room=coordinator)
+    for member in targets[1:]:
+        run_sonos(['group', 'unjoin'], room=member)
+    for member in targets[1:]:
+        run_sonos(['group', 'join', '--to', coordinator], room=member)
+
+    for room in targets:
+        effective_volume = announcement_volume(previous.get(room, {}), explicit_volume, duck)
+        if effective_volume is not None:
+            run_sonos(['volume', 'set', str(effective_volume)], room=room)
+
+    return coordinator
 
 
 def parse_targets(args) -> list[str]:
@@ -248,13 +276,19 @@ def main():
 
     if targets:
         previous = snapshot_targets(targets) if not args.no_restore else None
-        for room in targets:
-            effective_volume = announcement_volume(room, previous.get(room, {}) if previous else {}, args.volume, args.duck)
+        if len(targets) == 1:
+            room = targets[0]
+            effective_volume = announcement_volume(previous.get(room, {}) if previous else {}, args.volume, args.duck)
             sonos_play(room, url, volume=effective_volume)
+            wait_room = room
+        else:
+            coordinator = prepare_synchronized_group(targets, previous or {}, args.volume, args.duck)
+            sonos_play(coordinator, url, volume=None)
+            wait_room = coordinator
         if previous is not None:
-            wait_for_announcement(targets[0], url, timeout=args.timeout)
+            wait_for_announcement(wait_room, url, timeout=args.timeout)
             restore_states(previous, url)
-            print(f'Restored Sonos targets after announcement: {", ".join(targets)} :: {url}')
+            print(f'Restored Sonos targets after synchronized announcement: {", ".join(targets)} :: {url}')
         else:
             print(f'Playing on Sonos targets [{", ".join(targets)}]: {url}')
     elif args.print_url:
