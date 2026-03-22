@@ -11,6 +11,20 @@
 - Speaker names and IPs may be stored in `/home/jon/.openclaw/workspace/TOOLS.md`
 - Generated audio is served from `/home/jon/.openclaw/workspace/tts-cache/`
 - Default HTTP port is `8765`
+- Optional local zone aliases can live in `~/.config/sonos-tts/config.json`
+
+## Zone Alias Config
+
+Example config:
+
+```json
+{
+  "zones": {
+    "outdoor": ["Pool", "Pavilion"],
+    "downstairs": ["Office", "Main Level"]
+  }
+}
+```
 
 ## Troubleshooting
 
@@ -24,12 +38,13 @@ Check these, in order:
 
 ### Restore did not return the speaker to exactly the prior state
 
-The restore logic is best-effort. It snapshots current track URI, transport state, and volume, then reapplies them after the announcement.
+The restore logic is best-effort. It snapshots current track URI, transport state, volume, and group membership, then reapplies them after the announcement.
 
 Limitations:
 - It may not restore exact queue position or elapsed playback time
 - Some Sonos sources may resume imperfectly depending on URI type
-- Group state is not currently snapshotted or restored
+- Group restoration depends on visible speakers and successful join/unjoin operations
+- The current ducking behavior lowers announcement volume relative to active playback; it does not mix TTS over existing audio
 
 ### `Failed to import gTTS`
 

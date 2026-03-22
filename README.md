@@ -14,16 +14,28 @@ OpenClaw skill for generating text-to-speech audio and playing it on Sonos speak
 - `gtts` Python package
 - A machine on the same LAN as the Sonos speakers
 
-## Usage
+## Friendly wrapper
 
-The main script is:
-
-```bash
-python3 sonos-tts/scripts/sonos_tts.py --sonos "Office" --volume 35 "Hello from Jeeves"
-```
-
-Generate a URL without playing it:
+Use the wrapper for normal announcements:
 
 ```bash
-python3 sonos-tts/scripts/sonos_tts.py --print-url "Test message"
+python3 sonos-tts/scripts/announce.py --room "Office" "Hello from Jeeves"
 ```
+
+Multiple rooms:
+
+```bash
+python3 sonos-tts/scripts/announce.py --rooms "Office,Main Level" "Dinner is ready"
+```
+
+Named zone from config:
+
+```bash
+python3 sonos-tts/scripts/announce.py --zone outdoor "Come inside"
+```
+
+## Notes
+
+- Best-effort restore of prior playback and grouping is enabled by default
+- Announcement volume can be ducked relative to current playback
+- `sonos_tts.py` remains available for lower-level direct use

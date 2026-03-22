@@ -19,8 +19,10 @@ DEFAULT_CACHE_DIR = Path('/home/jon/.openclaw/workspace/tts-cache')
 DEFAULT_PORT = 8765
 
 
-def run_sonos(args: list[str], room: str, capture: bool = False) -> str | None:
-    cmd = ['sonos', *args, '--name', room]
+def run_sonos(args: list[str], room: str | None = None, capture: bool = False) -> str | None:
+    cmd = ['sonos', *args]
+    if room:
+        cmd.extend(['--name', room])
     result = subprocess.run(cmd, check=True, text=True, capture_output=capture)
     return result.stdout if capture else None
 
@@ -93,6 +95,52 @@ def get_status(room: str) -> dict:
     return json.loads(raw or '{}')
 
 
+def get_group_status() -> dict:
+    raw = run_sonos(['group', 'status', '--format', 'json'], capture=True)
+    return json.loads(raw or '{}')
+
+
+def snapshot_group_map() -> dict[str, dict]:
+    groups = get_group_status().get('groups', [])
+    mapping: dict[str, dict] = {}
+    for group in groups:
+        coordinator = group.get('coordinator', {}).get('name')
+        members = [member.get('name') for member in group.get('members', []) if member.get('name')]
+        for member in members:
+            mapping[member] = {'coordinator': coordinator, 'members': members}
+    return mapping
+
+
+def snapshot_state(room: str) -> dict:
+    status = get_status(room)
+    return {
+        'transport_state': status.get('transport', {}).get('State'),
+        'track_uri': status.get('position', {}).get('TrackURI'),
+        'volume': status.get('volume'),
+    }
+
+
+def snapshot_targets(targets: list[str]) -> dict:
+    group_map = snapshot_group_map()
+    states = {}
+    for room in targets:
+        room_state = snapshot_state(room)
+        room_state['group'] = group_map.get(room, {})
+        states[room] = room_state
+    return states
+
+
+def announcement_volume(room: str, state: dict, explicit_volume: int | None, duck: int | None) -> int | None:
+    if explicit_volume is not None:
+        return explicit_volume
+    current = state.get('volume')
+    transport = state.get('transport_state')
+    current_uri = state.get('track_uri')
+    if duck is not None and current is not None and transport == 'PLAYING' and current_uri:
+        return max(5, current - duck)
+    return None
+
+
 def sonos_play(room: str, url: str, volume: int | None = None):
     if volume is not None:
         run_sonos(['volume', 'set', str(volume)], room=room)
@@ -123,36 +171,66 @@ def wait_for_announcement(room: str, url: str, timeout: int = 30):
         time.sleep(0.5)
 
 
-def snapshot_state(room: str) -> dict:
-    status = get_status(room)
-    return {
-        'transport_state': status.get('transport', {}).get('State'),
-        'track_uri': status.get('position', {}).get('TrackURI'),
-        'volume': status.get('volume'),
-    }
+def restore_groups(previous: dict[str, dict]):
+    seen_groups: set[tuple[str, tuple[str, ...]]] = set()
+    for room, state in previous.items():
+        group = state.get('group') or {}
+        coordinator = group.get('coordinator')
+        members = tuple(group.get('members', []))
+        if not coordinator or not members:
+            continue
+        key = (coordinator, members)
+        if key in seen_groups:
+            continue
+        seen_groups.add(key)
+
+        if len(members) == 1:
+            run_sonos(['group', 'unjoin'], room=members[0])
+            continue
+
+        run_sonos(['group', 'unjoin'], room=coordinator)
+        for member in members:
+            if member == coordinator:
+                continue
+            run_sonos(['group', 'join', '--to', coordinator], room=member)
 
 
-def restore_state(room: str, previous: dict, announcement_url: str):
-    previous_uri = previous.get('track_uri')
-    previous_volume = previous.get('volume')
-    previous_state = previous.get('transport_state')
+def restore_states(previous: dict[str, dict], announcement_url: str):
+    restore_groups(previous)
+    for room, state in previous.items():
+        previous_uri = state.get('track_uri')
+        previous_volume = state.get('volume')
+        previous_state = state.get('transport_state')
 
-    if previous_volume is not None:
-        run_sonos(['volume', 'set', str(previous_volume)], room=room)
+        if previous_volume is not None:
+            run_sonos(['volume', 'set', str(previous_volume)], room=room)
 
-    if previous_uri and previous_uri != announcement_url:
-        run_sonos(['play-uri', previous_uri], room=room)
-        if previous_state in {'PAUSED_PLAYBACK', 'STOPPED'}:
-            run_sonos(['pause'], room=room)
-    elif previous_state in {'PAUSED_PLAYBACK', 'STOPPED'}:
-        run_sonos(['stop'], room=room)
+        if previous_uri and previous_uri != announcement_url:
+            run_sonos(['play-uri', previous_uri], room=room)
+            if previous_state in {'PAUSED_PLAYBACK', 'STOPPED'}:
+                run_sonos(['pause'], room=room)
+        elif previous_state in {'PAUSED_PLAYBACK', 'STOPPED'}:
+            run_sonos(['stop'], room=room)
+
+
+def parse_targets(args) -> list[str]:
+    if args.targets_json:
+        targets = json.loads(args.targets_json)
+        if not isinstance(targets, list) or not all(isinstance(x, str) for x in targets):
+            raise SystemExit('--targets-json must be a JSON array of room names')
+        return targets
+    if args.sonos:
+        return [args.sonos]
+    return []
 
 
 def main():
     parser = argparse.ArgumentParser(description='Generate TTS audio and optionally play it on Sonos')
     parser.add_argument('text', help='Text to speak')
-    parser.add_argument('--sonos', metavar='ROOM', help='Sonos room name to play on')
-    parser.add_argument('--volume', type=int, help='Set Sonos volume before playback')
+    parser.add_argument('--sonos', metavar='ROOM', help='Target one Sonos room')
+    parser.add_argument('--targets-json', help='JSON array of target Sonos room names')
+    parser.add_argument('--volume', type=int, help='Absolute announcement volume')
+    parser.add_argument('--duck', type=int, default=None, help='Reduce current volume by this amount when already playing')
     parser.add_argument('--lang', default='en', help='gTTS language code (default: en)')
     parser.add_argument('--slow', action='store_true', help='Use slower speech')
     parser.add_argument('--cache-dir', default=str(DEFAULT_CACHE_DIR), help='Directory for generated MP3 files')
@@ -166,16 +244,19 @@ def main():
     mp3_path = generate_mp3(args.text, cache_dir=cache_dir, lang=args.lang, slow=args.slow)
     ensure_http_server(cache_dir=cache_dir, port=args.port)
     url = f'http://{get_local_ip()}:{args.port}/{quote(mp3_path.name)}'
+    targets = parse_targets(args)
 
-    if args.sonos:
-        previous = snapshot_state(args.sonos) if not args.no_restore else None
-        sonos_play(args.sonos, url, volume=args.volume)
+    if targets:
+        previous = snapshot_targets(targets) if not args.no_restore else None
+        for room in targets:
+            effective_volume = announcement_volume(room, previous.get(room, {}) if previous else {}, args.volume, args.duck)
+            sonos_play(room, url, volume=effective_volume)
         if previous is not None:
-            wait_for_announcement(args.sonos, url, timeout=args.timeout)
-            restore_state(args.sonos, previous, url)
-            print(f'Restored Sonos [{args.sonos}] after announcement: {url}')
+            wait_for_announcement(targets[0], url, timeout=args.timeout)
+            restore_states(previous, url)
+            print(f'Restored Sonos targets after announcement: {", ".join(targets)} :: {url}')
         else:
-            print(f'Playing on Sonos [{args.sonos}]: {url}')
+            print(f'Playing on Sonos targets [{", ".join(targets)}]: {url}')
     elif args.print_url:
         print(url)
     else:
