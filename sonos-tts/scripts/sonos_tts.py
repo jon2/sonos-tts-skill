@@ -229,16 +229,12 @@ def restore_states(previous: dict[str, dict], announcement_url: str):
         should_restore_uri = (
             previous_uri
             and previous_uri != announcement_url
-            and previous_state in {'PLAYING', 'PAUSED_PLAYBACK'}
+            and previous_state == 'PLAYING'
         )
 
         if should_restore_uri:
             run_sonos(['play-uri', previous_uri], room=coordinator)
-            if previous_state == 'PAUSED_PLAYBACK':
-                try_run_sonos(['pause'], room=coordinator)
-        elif previous_state == 'PAUSED_PLAYBACK':
-            try_run_sonos(['pause'], room=coordinator)
-        elif previous_state == 'STOPPED':
+        elif previous_state in {'PAUSED_PLAYBACK', 'STOPPED'}:
             try_run_sonos(['stop'], room=coordinator)
 
         restored_group_playback.add(coordinator)
