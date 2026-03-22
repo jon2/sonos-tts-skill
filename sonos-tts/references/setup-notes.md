@@ -43,6 +43,7 @@ The restore logic is best-effort. It snapshots current track URI, transport stat
 Limitations:
 - It may not restore exact queue position or elapsed playback time
 - Some Sonos sources may resume imperfectly depending on URI type
+- If a room was already stopped before the announcement, the script now leaves it stopped instead of reviving a stale previous URI
 - Group restoration depends on visible speakers and successful join/unjoin operations
 - The current ducking behavior lowers announcement volume relative to active playback; it does not mix TTS over existing audio
 - Multi-room announcements are synchronized by temporarily regrouping targets under a single coordinator before playback

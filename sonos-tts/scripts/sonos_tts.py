@@ -213,12 +213,16 @@ def restore_states(previous: dict[str, dict], announcement_url: str):
         if previous_volume is not None:
             run_sonos(['volume', 'set', str(previous_volume)], room=room)
 
-        if previous_uri and previous_uri != announcement_url:
+        should_restore_uri = (
+            previous_uri
+            and previous_uri != announcement_url
+            and previous_state in {'PLAYING', 'PAUSED_PLAYBACK'}
+        )
+
+        if should_restore_uri:
             run_sonos(['play-uri', previous_uri], room=room)
             if previous_state == 'PAUSED_PLAYBACK':
                 try_run_sonos(['pause'], room=room)
-            elif previous_state == 'STOPPED':
-                try_run_sonos(['stop'], room=room)
         elif previous_state == 'PAUSED_PLAYBACK':
             try_run_sonos(['pause'], room=room)
         elif previous_state == 'STOPPED':
