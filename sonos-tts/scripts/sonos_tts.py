@@ -223,8 +223,9 @@ def restore_states(previous: dict[str, dict], announcement_url: str):
         if coordinator in restored_group_playback:
             continue
 
-        previous_uri = state.get('track_uri')
-        previous_state = state.get('transport_state')
+        coordinator_state = previous.get(coordinator, state)
+        previous_uri = coordinator_state.get('track_uri')
+        previous_state = coordinator_state.get('transport_state')
         should_restore_uri = (
             previous_uri
             and previous_uri != announcement_url
