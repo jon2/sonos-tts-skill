@@ -1,6 +1,6 @@
 ---
 name: sonos-tts
-description: Generate text-to-speech audio and play it on Sonos speakers. Use when the user wants spoken announcements, voice playback of short messages, or reusable TTS support through local Sonos rooms or room groups. Especially relevant for requests like "say this on Office," "announce this over Sonos," "announce to the outdoor zone," "create a house speaker announcement," or when setting up reusable spoken alert workflows.
+description: Generate text-to-speech audio and play it on Sonos speakers. Use when the user wants spoken announcements, voice playback of short messages, or reusable TTS support through local Sonos rooms or room groups. Supports configurable TTS backends, including gTTS today and ElevenLabs integration for more flexible voices.
 ---
 
 # Sonos TTS
@@ -22,7 +22,13 @@ python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/announce.py --roo
 python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/announce.py --rooms "Office,Main Level" "Meeting starts in five minutes"
 ```
 
-4. For direct low-level access or URL generation only, use `scripts/sonos_tts.py`.
+4. For ElevenLabs, either set it in config or pass backend/voice on the command line:
+
+```bash
+python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/announce.py --room "Office" --backend elevenlabs --voice "VOICE_ID" "Testing a different voice"
+```
+
+5. For direct low-level access or URL generation only, use `scripts/sonos_tts.py`.
 
 ## Guidance
 
@@ -35,6 +41,8 @@ python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/announce.py --roo
 - By default the wrapper also uses ducked announcement volume when a room is already playing.
 - Use `--volume` to force an absolute announcement volume.
 - Use `--duck <n>` to reduce current playing volume by `n` steps for the announcement.
+- Use `--backend gtts|elevenlabs` to select a speech engine.
+- Use `--voice` for backend-specific voice selection.
 - Use `--no-restore` if you want the announcement to replace current playback instead.
 
 ## Common examples
@@ -63,6 +71,12 @@ python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/announce.py --zon
 python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/announce.py --room "Main Level" --volume 45 "Dinner is ready."
 ```
 
+### Use ElevenLabs for a more expressive voice
+
+```bash
+python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/announce.py --room "Office" --backend elevenlabs --voice "VOICE_ID" "All right, listen up."
+```
+
 ### Replace playback without restoring it
 
 ```bash
@@ -75,21 +89,8 @@ python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/announce.py --roo
 python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/sonos_tts.py --print-url "Test message"
 ```
 
-## Local zone aliases
+## Local config
 
-`announce.py` can read a JSON config file from `~/.config/sonos-tts/config.json`.
+`announce.py` and `sonos_tts.py` can read a JSON config file from `~/.config/sonos-tts/config.json`.
 
-Example:
-
-```json
-{
-  "zones": {
-    "outdoor": ["Pool", "Pavilion"],
-    "downstairs": ["Office", "Main Level"]
-  }
-}
-```
-
-## Troubleshooting
-
-Read `references/setup-notes.md` when playback fails, `gTTS` is missing, the generated URL is not reachable, or restore behavior is imperfect.
+Read `references/setup-notes.md` for backend configuration details, especially ElevenLabs API key and voice setup.

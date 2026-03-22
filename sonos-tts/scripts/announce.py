@@ -51,7 +51,9 @@ def main():
     parser.add_argument('--duck', type=int, default=10, help='Reduce current volume by this amount when audio is already active (default: 10)')
     parser.add_argument('--lang', default='en', help='gTTS language code')
     parser.add_argument('--slow', action='store_true', help='Use slower speech')
-    parser.add_argument('--config', type=Path, default=DEFAULT_CONFIG, help='JSON config file with zone definitions')
+    parser.add_argument('--backend', choices=['gtts', 'elevenlabs'], help='TTS backend to use')
+    parser.add_argument('--voice', help='Voice ID or preset for the selected backend')
+    parser.add_argument('--config', type=Path, default=DEFAULT_CONFIG, help='JSON config file with zone and TTS definitions')
     parser.add_argument('--no-restore', action='store_true', help='Do not restore previous playback state')
     parser.add_argument('--timeout', type=int, default=30, help='Seconds to wait before restore')
     args = parser.parse_args()
@@ -70,7 +72,13 @@ def main():
         args.lang,
         '--timeout',
         str(args.timeout),
+        '--config',
+        str(args.config),
     ]
+    if args.backend:
+        cmd.extend(['--backend', args.backend])
+    if args.voice:
+        cmd.extend(['--voice', args.voice])
     if args.volume is not None:
         cmd.extend(['--volume', str(args.volume)])
     if args.slow:

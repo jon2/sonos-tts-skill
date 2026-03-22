@@ -2,40 +2,21 @@
 
 OpenClaw skill for generating text-to-speech audio and playing it on Sonos speakers.
 
-## Contents
+## Features
 
-- `sonos-tts/` — the skill folder
-- `sonos-tts.skill` — packaged skill artifact
-
-## Requirements
-
-- `sonos` CLI
-- Python 3
-- `gtts` Python package
-- A machine on the same LAN as the Sonos speakers
+- Sonos room and multi-room announcements
+- Synchronized group playback for multi-speaker announcements
+- Best-effort restore of prior grouping and playback state
+- Configurable TTS backends (`gtts` and `elevenlabs`)
 
 ## Friendly wrapper
-
-Use the wrapper for normal announcements:
 
 ```bash
 python3 sonos-tts/scripts/announce.py --room "Office" "Hello from Jeeves"
 ```
 
-Multiple rooms:
+Use ElevenLabs:
 
 ```bash
-python3 sonos-tts/scripts/announce.py --rooms "Office,Main Level" "Dinner is ready"
+python3 sonos-tts/scripts/announce.py --room "Office" --backend elevenlabs --voice "VOICE_ID" "Testing a different voice"
 ```
-
-Named zone from config:
-
-```bash
-python3 sonos-tts/scripts/announce.py --zone outdoor "Come inside"
-```
-
-## Notes
-
-- Best-effort restore of prior playback and grouping is enabled by default
-- Announcement volume can be ducked relative to current playback
-- `sonos_tts.py` remains available for lower-level direct use
