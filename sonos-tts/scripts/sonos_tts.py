@@ -205,14 +205,26 @@ def restore_groups(previous: dict[str, dict]):
 
 def restore_states(previous: dict[str, dict], announcement_url: str):
     restore_groups(previous)
-    for room, state in previous.items():
-        previous_uri = state.get('track_uri')
-        previous_volume = state.get('volume')
-        previous_state = state.get('transport_state')
 
+    restored_group_playback: set[str] = set()
+    for room, state in previous.items():
+        previous_volume = state.get('volume')
         if previous_volume is not None:
             run_sonos(['volume', 'set', str(previous_volume)], room=room)
 
+    for room, state in previous.items():
+        group = state.get('group') or {}
+        coordinator = group.get('coordinator') or room
+        members = group.get('members') or [room]
+        is_group = len(members) > 1
+
+        if is_group and room != coordinator:
+            continue
+        if coordinator in restored_group_playback:
+            continue
+
+        previous_uri = state.get('track_uri')
+        previous_state = state.get('transport_state')
         should_restore_uri = (
             previous_uri
             and previous_uri != announcement_url
@@ -220,13 +232,15 @@ def restore_states(previous: dict[str, dict], announcement_url: str):
         )
 
         if should_restore_uri:
-            run_sonos(['play-uri', previous_uri], room=room)
+            run_sonos(['play-uri', previous_uri], room=coordinator)
             if previous_state == 'PAUSED_PLAYBACK':
-                try_run_sonos(['pause'], room=room)
+                try_run_sonos(['pause'], room=coordinator)
         elif previous_state == 'PAUSED_PLAYBACK':
-            try_run_sonos(['pause'], room=room)
+            try_run_sonos(['pause'], room=coordinator)
         elif previous_state == 'STOPPED':
-            try_run_sonos(['stop'], room=room)
+            try_run_sonos(['stop'], room=coordinator)
+
+        restored_group_playback.add(coordinator)
 
 
 def prepare_synchronized_group(targets: list[str], previous: dict[str, dict], explicit_volume: int | None, duck: int | None) -> str:
