@@ -5,7 +5,7 @@ description: Generate text-to-speech audio and play it on Sonos speakers. Use wh
 
 # Sonos TTS
 
-Use `scripts/sonos_tts.py` to turn text into an MP3, serve it over HTTP on the local network, and optionally play it on a Sonos speaker.
+Use `scripts/sonos_tts.py` to turn text into an MP3, serve it over HTTP on the local network, play it on a Sonos speaker, and by default attempt a best-effort restore of the prior playback state after the announcement finishes.
 
 ## Quick workflow
 
@@ -29,6 +29,8 @@ python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/sonos_tts.py --pr
 - Use exact Sonos room names.
 - The script starts or reuses a small HTTP server that serves files from `tts-cache/`.
 - Generated files are cached in `/home/jon/.openclaw/workspace/tts-cache/`.
+- By default the script snapshots current Sonos state and attempts a best-effort restore after the announcement.
+- Use `--no-restore` if you want the announcement to replace current playback instead.
 
 ## Common examples
 
@@ -42,6 +44,12 @@ python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/sonos_tts.py --so
 
 ```bash
 python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/sonos_tts.py --sonos "Main Level" --volume 45 "Dinner is ready."
+```
+
+### Replace playback without restoring it
+
+```bash
+python3 /home/jon/.openclaw/workspace/skills/sonos-tts/scripts/sonos_tts.py --sonos "Office" --no-restore "This will leave the announcement loaded on the speaker."
 ```
 
 ### Generate speech without playback

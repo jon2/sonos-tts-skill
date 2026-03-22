@@ -22,6 +22,15 @@ Check these, in order:
 - Confirm the local IP is reachable from the Sonos subnet
 - If playback starts but cuts out, retry after a second generation
 
+### Restore did not return the speaker to exactly the prior state
+
+The restore logic is best-effort. It snapshots current track URI, transport state, and volume, then reapplies them after the announcement.
+
+Limitations:
+- It may not restore exact queue position or elapsed playback time
+- Some Sonos sources may resume imperfectly depending on URI type
+- Group state is not currently snapshotted or restored
+
 ### `Failed to import gTTS`
 
 Install it with pip if needed. In this environment that was:
